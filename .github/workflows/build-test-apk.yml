@@ -1,0 +1,56 @@
+name: Build isolated MerbutGames Android test APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Source branch to build"
+        required: true
+        default: "apk-fix-isolated-test"
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout private app source
+        uses: actions/checkout@v4
+        with:
+          repository: 6161bayramts-ctrl/merbuthansosyal
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.MERBUT_SOURCE_TOKEN }}
+          path: source
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install dependencies and generate Android project
+        working-directory: source
+        run: |
+          npm install
+          npx cap add android
+          npx cap sync android
+
+      - name: Build debug APK
+        working-directory: source/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload test APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MerbutGames-Android-Test
+          path: source/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
