@@ -52,20 +52,25 @@ jobs:
           if not styles.exists():
               raise SystemExit("Generated Android styles.xml not found")
           data = styles.read_text()
-          names = ("AppTheme.NoActionBar", "AppTheme.NoActionBarLaunch")
-          for name in names:
-              pattern = rf'(<style\\s+name="{re.escape(name)}"[^>]*>)(.*?)(</style>)'
-              match = re.search(pattern, data, re.S)
-              if not match:
-                  raise SystemExit(f"Expected theme {name} not found")
-              body = match.group(2)
+
+          def add_android15_compat(match):
+              opening, body, closing = match.groups()
               if "windowOptOutEdgeToEdgeEnforcement" not in body:
                   body += '''
                   <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
                   <item name="android:statusBarColor">#0d1018</item>
                   <item name="android:windowLightStatusBar">false</item>
                   '''
-                  data = data[:match.start(2)] + body + data[match.end(2):]
+              return opening + body + closing
+
+          data, count = re.subn(
+              r'(<style\\b[^>]*name="[^"]*NoActionBar[^"]*"[^>]*>)(.*?)(</style>)',
+              add_android15_compat,
+              data,
+              flags=re.S
+          )
+          if count == 0:
+              raise SystemExit("No NoActionBar app theme found in styles.xml")
           styles.write_text(data)
           PY
           MAIN_ACTIVITY="$(find android/app/src/main -name MainActivity.java -print -quit)"
