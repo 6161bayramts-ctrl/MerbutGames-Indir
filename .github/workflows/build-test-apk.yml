@@ -48,30 +48,31 @@ jobs:
           from pathlib import Path
           import re
 
-          styles = Path("android/app/src/main/res/values/styles.xml")
-          if not styles.exists():
-              raise SystemExit("Generated Android styles.xml not found")
-          data = styles.read_text()
-
-          def add_android15_compat(match):
-              opening, body, closing = match.groups()
-              if "windowOptOutEdgeToEdgeEnforcement" not in body:
-                  body += '''
-                  <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
-                  <item name="android:statusBarColor">#0d1018</item>
-                  <item name="android:windowLightStatusBar">false</item>
-                  '''
-              return opening + body + closing
-
-          data, count = re.subn(
-              r'(<style\\b[^>]*name="[^"]*NoActionBar[^"]*"[^>]*>)(.*?)(</style>)',
-              add_android15_compat,
-              data,
-              flags=re.S
-          )
-          if count == 0:
-              raise SystemExit("No NoActionBar app theme found in styles.xml")
-          styles.write_text(data)
+          resource_dir = Path("android/app/src/main/res")
+          patched = 0
+          for styles in resource_dir.glob("values*/**/*.xml"):
+              data = styles.read_text()
+              def patch_style(match):
+                  opening, body, closing = match.groups()
+                  if "windowOptOutEdgeToEdgeEnforcement" not in body:
+                      body += '''
+                      <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+                      <item name="android:statusBarColor">#0d1018</item>
+                      <item name="android:windowLightStatusBar">false</item>
+                      '''
+                  return opening + body + closing
+              updated, count = re.subn(
+                  r'(<style[^>]*>)(.*?)(</style>)',
+                  patch_style,
+                  data,
+                  flags=re.S
+              )
+              if count:
+                  styles.write_text(updated)
+                  patched += count
+          if patched == 0:
+              raise SystemExit("No Android style resources found to patch")
+          print(f"Patched {patched} Android style definitions")
           PY
           MAIN_ACTIVITY="$(find android/app/src/main -name MainActivity.java -print -quit)"
           if [ -z "$MAIN_ACTIVITY" ]; then
