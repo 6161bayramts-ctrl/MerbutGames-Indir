@@ -43,6 +43,27 @@ jobs:
         run: |
           npm install
           npx cap add android
+          # APK-only: add 20dp inset above the site header without changing the website.
+          MAIN_ACTIVITY="$(find android/app/src/main -name MainActivity.java -print -quit)"
+          if [ -z "$MAIN_ACTIVITY" ]; then
+            echo "MainActivity.java not found"
+            exit 1
+          fi
+          cat > "$MAIN_ACTIVITY" <<'JAVA'
+          package com.merbuthan.merbutgames;
+
+          import android.os.Bundle;
+          import com.getcapacitor.BridgeActivity;
+
+          public class MainActivity extends BridgeActivity {
+              @Override
+              public void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  int extraTopSpace = (int) (20 * getResources().getDisplayMetrics().density + 0.5f);
+                  getBridge().getWebView().setPadding(0, extraTopSpace, 0, 0);
+              }
+          }
+          JAVA
           npx cap sync android
 
       - name: Build debug APK
@@ -62,3 +83,5 @@ jobs:
 # Rebuild after TypeScript dependency fix.
 
 # Rebuild with Android status bar inset handling.
+
+# Add 20dp top inset inside APK WebView only.
