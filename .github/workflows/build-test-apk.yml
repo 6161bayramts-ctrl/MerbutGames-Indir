@@ -60,3 +60,5 @@ jobs:
           retention-days: 14
 
 # Rebuild after TypeScript dependency fix.
+
+# Rebuild with Android status bar inset handling.
