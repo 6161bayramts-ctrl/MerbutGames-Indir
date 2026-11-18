@@ -43,7 +43,31 @@ jobs:
         run: |
           npm install
           npx cap add android
-          # APK-only: use the device's real status-bar inset, not a fixed dp guess.
+          # Android 15 (API 35) edge-to-edge opt-out for this APK test only.
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          styles = Path("android/app/src/main/res/values/styles.xml")
+          if not styles.exists():
+              raise SystemExit("Generated Android styles.xml not found")
+          data = styles.read_text()
+          names = ("AppTheme.NoActionBar", "AppTheme.NoActionBarLaunch")
+          for name in names:
+              pattern = rf'(<style\\s+name="{re.escape(name)}"[^>]*>)(.*?)(</style>)'
+              match = re.search(pattern, data, re.S)
+              if not match:
+                  raise SystemExit(f"Expected theme {name} not found")
+              body = match.group(2)
+              if "windowOptOutEdgeToEdgeEnforcement" not in body:
+                  body += '''
+                  <item name="android:windowOptOutEdgeToEdgeEnforcement">true</item>
+                  <item name="android:statusBarColor">#0d1018</item>
+                  <item name="android:windowLightStatusBar">false</item>
+                  '''
+                  data = data[:match.start(2)] + body + data[match.end(2):]
+          styles.write_text(data)
+          PY
           MAIN_ACTIVITY="$(find android/app/src/main -name MainActivity.java -print -quit)"
           if [ -z "$MAIN_ACTIVITY" ]; then
             echo "MainActivity.java not found"
@@ -54,33 +78,15 @@ jobs:
 
           import android.graphics.Color;
           import android.os.Bundle;
-          import android.view.View;
-          import androidx.core.graphics.Insets;
-          import androidx.core.view.ViewCompat;
           import androidx.core.view.WindowCompat;
-          import androidx.core.view.WindowInsetsCompat;
           import com.getcapacitor.BridgeActivity;
 
           public class MainActivity extends BridgeActivity {
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   super.onCreate(savedInstanceState);
-
-                  WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+                  WindowCompat.setDecorFitsSystemWindows(getWindow(), true);
                   getWindow().setStatusBarColor(Color.rgb(13, 16, 24));
-
-                  View webView = getBridge().getWebView();
-                  ViewCompat.setOnApplyWindowInsetsListener(webView, (view, windowInsets) -> {
-                      Insets statusBars = windowInsets.getInsets(WindowInsetsCompat.Type.statusBars());
-                      view.setPadding(
-                          view.getPaddingLeft(),
-                          statusBars.top,
-                          view.getPaddingRight(),
-                          view.getPaddingBottom()
-                      );
-                      return windowInsets;
-                  });
-                  ViewCompat.requestApplyInsets(webView);
               }
           }
           JAVA
@@ -99,9 +105,3 @@ jobs:
           path: source/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
-
-# Rebuild after TypeScript dependency fix.
-
-# Rebuild with Android status bar inset handling.
-
-# Add 20dp top inset inside APK WebView only.
