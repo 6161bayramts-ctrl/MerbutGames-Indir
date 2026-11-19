@@ -1,5 +1,4 @@
-name: Build isolated MerbutGames Android test APK
-# Rebuild after the APK source UI navigation and safe-area patch.
+name: Build and publish MerbutGames Android test APK
 
 on:
   push:
@@ -14,7 +13,7 @@ on:
         default: "apk-fix-isolated-test"
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   android:
@@ -112,3 +111,17 @@ jobs:
           path: source/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Publish APK as the latest GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.1-test2
+          name: MerbutGames Android v1.0.1-test2
+          body: |
+            Android test build containing the navigation and safe-area layout fixes.
+            Please test the updated section navigation and top spacing on a real device.
+          files: source/android/app/build/outputs/apk/debug/app-debug.apk
+          make_latest: true
+          prerelease: false
+          draft: false
+          overwrite_files: true
