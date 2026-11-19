@@ -1,4 +1,5 @@
 name: Build isolated MerbutGames Android test APK
+# Rebuild after the APK source UI navigation and safe-area patch.
 
 on:
   push:
